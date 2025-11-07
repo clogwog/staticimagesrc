@@ -66,7 +66,7 @@ export GST_PLUGIN_PATH="/usr/local/lib/gstreamer-1.0:${GST_PLUGIN_PATH}"
 ```bash
 gst-launch-1.0 \
   staticimagesrc location=/etc/MTData/png/test-pattern.png fps=25/1 width=1280 height=720 ! \
-  videoconvert ! autovideosink
+  video/x-raw,format=RGBA ! videoconvert ! autovideosink
 ```
 
 - Force format and size (RGBA):
@@ -77,12 +77,12 @@ gst-launch-1.0 \
   videoconvert ! autovideosink
 ```
 
-- NV12 output (useful for encoders):
+- NV12 output (preview via videoconvert):
 ```bash
 gst-launch-1.0 \
   staticimagesrc location=/path/to/image.jpg fps=30/1 ! \
   video/x-raw,format=NV12 ! \
-  autovideosink
+  videoconvert ! autovideosink
 ```
 
 - I420 output and encode to H.264:
@@ -97,11 +97,12 @@ gst-launch-1.0 \
 ```bash
 gst-launch-1.0 \
   staticimagesrc location=/path/to/image.png width=640 height=360 ! \
-  autovideosink
+  video/x-raw,format=RGBA ! videoconvert ! autovideosink
 ```
 
 ## Notes
 - The element factory name is `staticimagesrc`.
+- On older GStreamer (e.g., 1.14), when using width/height properties with videoconvert, add `video/x-raw,format=RGBA` to ensure negotiation.
 - Supported file extensions are determined by the URI's path extension: `png` -> PNG decoder; `jpeg`, `jpg`, `jpp` -> JPEG decoder.
 - The plugin performs a one-time image decode (PNG or JPEG) and optional scale at startup; subsequent buffers reuse the same memory.
 - For NV12/I420, software color conversion (BT.601 full-range) is used.
