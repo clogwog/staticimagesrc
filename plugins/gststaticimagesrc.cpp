@@ -317,12 +317,25 @@ static gboolean gst_static_png_src_start(GstBaseSrc* src)
     gint out_w = img_w;
     gint out_h = img_h;
 
-    /* Prefer downstream fixed caps if any */
-    GstPad* srcpad = gst_element_get_static_pad(GST_ELEMENT(self), "src");
+    /* Prefer downstream fixed caps if any (be safe on older GStreamer when not linked) */
     GstCaps* peer_caps = NULL;
+    GstPad* srcpad = gst_element_get_static_pad(GST_ELEMENT(self), "src");
     if (srcpad != NULL)
     {
-        peer_caps = gst_pad_peer_query_caps(srcpad, NULL);
+        if (gst_pad_is_linked(srcpad))
+        {
+            GstPad* peer = gst_pad_get_peer(srcpad);
+            if (peer != NULL)
+            {
+                peer_caps = gst_pad_query_caps(peer, NULL);
+                gst_object_unref(peer);
+            }
+        }
+        if (peer_caps == NULL)
+        {
+            /* Fallback to our own template caps */
+            peer_caps = gst_pad_query_caps(srcpad, NULL);
+        }
         gst_object_unref(srcpad);
     }
     if (peer_caps != NULL)
