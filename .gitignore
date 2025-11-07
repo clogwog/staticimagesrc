@@ -24,4 +24,6 @@
 *.la
 .libs/
 *~
-
+*.Plo
+*.o
+plugins/.deps/plugin.Plo

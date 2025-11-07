@@ -17,7 +17,7 @@ This plugin was created because common pipelines like `filesrc ! decodebin ! ima
 ## Dependencies
 - Autotools toolchain: autoconf, automake, libtool, pkg-config
 - C/C++ toolchain: gcc/g++, make
-- GStreamer 1.16+ development packages
+- GStreamer 1.14+ development packages
   - Core: `gstreamer-1.0`
   - Base: `gstreamer-base-1.0`
   - Video: `gstreamer-video-1.0`
@@ -62,10 +62,10 @@ export GST_PLUGIN_PATH="/usr/local/lib/gstreamer-1.0:${GST_PLUGIN_PATH}"
 ```
 
 ## Usage Examples
-- Basic preview (auto-negotiated RGBA):
+- Basic preview (matches pipeline_manager example):
 ```bash
 gst-launch-1.0 \
-  staticimagesrc location=/path/to/image.jpg fps=25/1 ! \
+  staticimagesrc location=/etc/MTData/png/test-pattern.png fps=25/1 width=1280 height=720 ! \
   videoconvert ! autovideosink
 ```
 
