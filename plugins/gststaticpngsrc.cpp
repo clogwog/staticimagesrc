@@ -89,6 +89,24 @@ static void swizzle_from_rgba_inplace(guint8* pixels, gint width, gint height, c
 static guint8* convert_rgba_to_nv12(const guint8* src, gint width, gint height);
 static guint8* convert_rgba_to_i420(const guint8* src, gint width, gint height);
 
+/* Local safe memdup to avoid runtime dependency on g_memdup2/g_memdup */
+static inline gpointer memdup_fallback(const void* src, gsize size)
+{
+    if (src == NULL || size == 0)
+    {
+        return NULL;
+    }
+
+    gpointer dst = g_malloc(size);
+    if (dst == NULL)
+    {
+        return NULL;
+    }
+
+    memcpy(dst, src, size);
+    return dst;
+}
+
 /* GObject methods */
 static void gst_static_png_src_class_init(GstStaticPngSrcClass* klass)
 {
@@ -492,11 +510,7 @@ static GstFlowReturn gst_static_png_src_create(GstPushSrc* src, GstBuffer** buf)
         {
             self->frame_size = self->rgba_size;
             self->frame_stride = self->rgba_stride;
-#if GLIB_CHECK_VERSION(2, 68, 0)
-            self->frame_data = (guint8*)g_memdup2(self->rgba_data, self->rgba_size);
-#else
-            self->frame_data = (guint8*)g_memdup(self->rgba_data, self->rgba_size);
-#endif
+            self->frame_data = (guint8*)memdup_fallback(self->rgba_data, self->rgba_size);
             if (self->frame_data == NULL)
             {
                 GST_ELEMENT_ERROR(self, RESOURCE, NO_SPACE_LEFT, ("Failed to allocate output frame"), (NULL));
