@@ -18,7 +18,7 @@ AC_CHECK_PROG(HAVE_PKGCONFIG, pkg-config, [ ], [
   AC_MSG_ERROR([You need to have pkg-config installed!])
 ])
 
-GST_REQUIRED=1.16.0
+GST_REQUIRED=1.14.0
 
 PKG_CHECK_MODULES([GST], [
   gstreamer-1.0 >= $GST_REQUIRED
