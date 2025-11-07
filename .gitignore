@@ -1,0 +1,17 @@
+/.deps/
+/autom4te.cache/
+/config.h
+/config.log
+/config.status
+/configure
+/libtool
+/ltmain.sh
+/Makefile
+/Makefile.in
+/plugins/Makefile
+/plugins/Makefile.in
+/stamp-h1
+*.lo
+*.la
+.libs/
+
