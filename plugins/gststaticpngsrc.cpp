@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <jpeglib.h>
 #include <png.h>
 
 GST_DEBUG_CATEGORY_STATIC(gst_static_png_src_debug_category);
@@ -82,6 +83,7 @@ static gboolean gst_static_png_src_stop(GstBaseSrc* src);
 static GstFlowReturn gst_static_png_src_create(GstPushSrc* src, GstBuffer** buf);
 
 static gboolean decode_png_to_rgba(const gchar* path, guint8** out_pixels, gint* out_w, gint* out_h);
+static gboolean decode_jpeg_to_rgba(const gchar* path, guint8** out_pixels, gint* out_w, gint* out_h);
 static guint8* scale_rgba_nearest(const guint8* src, gint src_w, gint src_h, gint dst_w, gint dst_h);
 static void swizzle_from_rgba_inplace(guint8* pixels, gint width, gint height, const gchar* fmt);
 static guint8* convert_rgba_to_nv12(const guint8* src, gint width, gint height);
@@ -96,32 +98,33 @@ static void gst_static_png_src_class_init(GstStaticPngSrcClass* klass)
     GstBaseSrcClass* base_src_class = GST_BASE_SRC_CLASS(klass);
 
     gst_element_class_add_static_pad_template(element_class, &gst_static_png_src_template);
-    gst_element_class_set_static_metadata(element_class, "Static PNG Source", "Source/Video",
-                                          "Outputs a static RGBA image from a PNG at a fixed framerate", "MTData");
+    gst_element_class_set_static_metadata(element_class, "Static Image Source", "Source/Video",
+                                          "Outputs a static RGBA image from a PNG or JPEG at a fixed framerate",
+                                          "MTData");
 
     gobject_class->set_property = gst_static_png_src_set_property;
     gobject_class->get_property = gst_static_png_src_get_property;
     gobject_class->dispose = gst_static_png_src_dispose;
 
-    g_object_class_install_property(
-        gobject_class, PROP_LOCATION,
-        g_param_spec_string("location", "location", "Location of the PNG image to load", NULL,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(gobject_class, PROP_LOCATION,
+                                    g_param_spec_string("location", "location",
+                                                        "Location of the image to load (png, jpg/jpeg/jpp)", NULL,
+                                                        (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(
-        gobject_class, PROP_FPS,
-        gst_param_spec_fraction("fps", "fps", "Output framerate as a fraction", 1, 1, 60, 1, 25, 1,
-                                (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(gobject_class, PROP_FPS,
+                                    gst_param_spec_fraction("fps", "fps", "Output framerate as a fraction", 1, 1, 60, 1,
+                                                            25, 1,
+                                                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(
-        gobject_class, PROP_WIDTH,
-        g_param_spec_int("width", "width", "Optional output width (scales image once if set)", 0, 8192, 0,
-                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(gobject_class, PROP_WIDTH,
+                                    g_param_spec_int("width", "width",
+                                                     "Optional output width (scales image once if set)", 0, 8192, 0,
+                                                     (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(
-        gobject_class, PROP_HEIGHT,
-        g_param_spec_int("height", "height", "Optional output height (scales image once if set)", 0, 8192, 0,
-                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(gobject_class, PROP_HEIGHT,
+                                    g_param_spec_int("height", "height",
+                                                     "Optional output height (scales image once if set)", 0, 8192, 0,
+                                                     (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     base_src_class->start = gst_static_png_src_start;
     base_src_class->stop = gst_static_png_src_stop;
@@ -259,14 +262,36 @@ static gboolean gst_static_png_src_start(GstBaseSrc* src)
         return FALSE;
     }
 
-    /* Decode PNG to RGBA */
+    /* Decode image (by file extension) to RGBA */
     guint8* decoded = NULL;
     gint img_w = 0;
     gint img_h = 0;
 
-    if (!decode_png_to_rgba(self->location, &decoded, &img_w, &img_h))
+    gboolean decoded_ok = FALSE;
+    if (self->location != NULL)
     {
-        GST_ELEMENT_ERROR(self, RESOURCE, READ, ("Failed to decode PNG at '%s'", self->location), (NULL));
+        const gchar* dot = strrchr(self->location, '.');
+        if (dot != NULL && *(dot + 1) != '\0')
+        {
+            gchar* ext = g_ascii_strdown(dot + 1, -1);
+            if (ext != NULL)
+            {
+                if (g_strcmp0(ext, "png") == 0)
+                {
+                    decoded_ok = decode_png_to_rgba(self->location, &decoded, &img_w, &img_h);
+                }
+                else if (g_strcmp0(ext, "jpg") == 0 || g_strcmp0(ext, "jpeg") == 0 || g_strcmp0(ext, "jpp") == 0)
+                {
+                    decoded_ok = decode_jpeg_to_rgba(self->location, &decoded, &img_w, &img_h);
+                }
+                g_free(ext);
+            }
+        }
+    }
+    if (!decoded_ok)
+    {
+        GST_ELEMENT_ERROR(self, RESOURCE, READ,
+                          ("Failed to decode image at '%s' (supported: png, jpg/jpeg/jpp)", self->location), (NULL));
         return FALSE;
     }
 
@@ -681,6 +706,94 @@ static gboolean decode_png_to_rgba(const gchar* path, guint8** out_pixels, gint*
     return TRUE;
 }
 
+static gboolean decode_jpeg_to_rgba(const gchar* path, guint8** out_pixels, gint* out_w, gint* out_h)
+{
+    *out_pixels = NULL;
+    *out_w = 0;
+    *out_h = 0;
+
+    FILE* fp = fopen(path, "rb");
+    if (!fp)
+    {
+        return FALSE;
+    }
+
+    struct jpeg_decompress_struct cinfo;
+    struct jpeg_error_mgr jerr;
+    cinfo.err = jpeg_std_error(&jerr);
+    jpeg_create_decompress(&cinfo);
+    jpeg_stdio_src(&cinfo, fp);
+
+    if (jpeg_read_header(&cinfo, TRUE) != JPEG_HEADER_OK)
+    {
+        jpeg_destroy_decompress(&cinfo);
+        fclose(fp);
+        return FALSE;
+    }
+
+    cinfo.out_color_space = JCS_RGB;
+    if (!jpeg_start_decompress(&cinfo))
+    {
+        jpeg_destroy_decompress(&cinfo);
+        fclose(fp);
+        return FALSE;
+    }
+
+    const gint width = (gint)cinfo.output_width;
+    const gint height = (gint)cinfo.output_height;
+    const gint row_rgb_stride = (gint)cinfo.output_width * (gint)cinfo.output_components; /* expect 3 */
+
+    guint8* rgba = (guint8*)g_malloc((gsize)width * (gsize)height * 4);
+    if (rgba == NULL)
+    {
+        jpeg_finish_decompress(&cinfo);
+        jpeg_destroy_decompress(&cinfo);
+        fclose(fp);
+        return FALSE;
+    }
+
+    JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray)((j_common_ptr)&cinfo, JPOOL_IMAGE, (JDIMENSION)row_rgb_stride, 1);
+    if (buffer == NULL)
+    {
+        g_free(rgba);
+        jpeg_finish_decompress(&cinfo);
+        jpeg_destroy_decompress(&cinfo);
+        fclose(fp);
+        return FALSE;
+    }
+
+    while (cinfo.output_scanline < cinfo.output_height)
+    {
+        if (jpeg_read_scanlines(&cinfo, buffer, 1) != 1)
+        {
+            g_free(rgba);
+            jpeg_finish_decompress(&cinfo);
+            jpeg_destroy_decompress(&cinfo);
+            fclose(fp);
+            return FALSE;
+        }
+
+        guint8* dst = rgba + ((gsize)(cinfo.output_scanline - 1) * (gsize)width * 4);
+        guint8* src = buffer[0];
+        for (gint x = 0; x < width; ++x)
+        {
+            dst[x * 4 + 0] = src[x * 3 + 0];
+            dst[x * 4 + 1] = src[x * 3 + 1];
+            dst[x * 4 + 2] = src[x * 3 + 2];
+            dst[x * 4 + 3] = 255;
+        }
+    }
+
+    jpeg_finish_decompress(&cinfo);
+    jpeg_destroy_decompress(&cinfo);
+    fclose(fp);
+
+    *out_pixels = rgba;
+    *out_w = width;
+    *out_h = height;
+    return TRUE;
+}
+
 static guint8* scale_rgba_nearest(const guint8* src, gint src_w, gint src_h, gint dst_w, gint dst_h)
 {
     if (src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0)
@@ -951,5 +1064,3 @@ static guint8* convert_rgba_to_i420(const guint8* src, gint width, gint height)
 
     return dst;
 }
-
-

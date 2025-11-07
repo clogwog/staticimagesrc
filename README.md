@@ -1,5 +1,7 @@
 # staticimagesrc – GStreamer static image source
 
+This plugin was created because common pipelines like `filesrc ! decodebin ! imagefreeze` frequently misbehave on Jetson devices (e.g., sporadic stalls, negotiation quirks, or high overhead when paired with zero-copy paths). `staticimagesrc` avoids those issues by decoding the image exactly once at startup and then reusing the same frame for every buffer. The result is a lightweight, predictable source with very low CPU and memory overhead.
+
 ## Table of Contents
 - [Overview](#overview)
 - [Dependencies](#dependencies)
@@ -10,7 +12,7 @@
 - [Notes](#notes)
 
 ## Overview
-`staticimagesrc` is a simple GStreamer source element that outputs a constant video frame generated from a PNG image at a fixed framerate. It supports RGBA family formats as well as NV12 and I420 via software conversion.
+`staticimagesrc` is a simple GStreamer source element that outputs a constant video frame generated from an image at a fixed framerate. It supports RGBA family formats as well as NV12 and I420 via software conversion.
 
 ## Dependencies
 - Autotools toolchain: autoconf, automake, libtool, pkg-config
@@ -20,6 +22,7 @@
   - Base: `gstreamer-base-1.0`
   - Video: `gstreamer-video-1.0`
 - libpng development package
+- libjpeg development package
 
 ## Debian/Ubuntu Installation
 ```bash
@@ -27,7 +30,7 @@ sudo apt update
 sudo apt install -y \
     build-essential autoconf automake libtool pkg-config \
     libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-    libpng-dev
+    libpng-dev libjpeg-dev
 ```
 
 ## Build Instructions
@@ -62,7 +65,7 @@ export GST_PLUGIN_PATH="/usr/local/lib/gstreamer-1.0:${GST_PLUGIN_PATH}"
 - Basic preview (auto-negotiated RGBA):
 ```bash
 gst-launch-1.0 \
-  staticimagesrc location=/path/to/image.png fps=25/1 ! \
+  staticimagesrc location=/path/to/image.jpg fps=25/1 ! \
   videoconvert ! autovideosink
 ```
 
@@ -77,7 +80,7 @@ gst-launch-1.0 \
 - NV12 output (useful for encoders):
 ```bash
 gst-launch-1.0 \
-  staticimagesrc location=/path/to/image.png fps=30/1 ! \
+  staticimagesrc location=/path/to/image.jpg fps=30/1 ! \
   video/x-raw,format=NV12 ! \
   autovideosink
 ```
@@ -99,5 +102,6 @@ gst-launch-1.0 \
 
 ## Notes
 - The element factory name is `staticimagesrc`.
-- The plugin performs a one-time PNG decode and optional scale at startup; subsequent buffers reuse the same memory.
+- Supported file extensions are determined by the URI's path extension: `png` -> PNG decoder; `jpeg`, `jpg`, `jpp` -> JPEG decoder.
+- The plugin performs a one-time image decode (PNG or JPEG) and optional scale at startup; subsequent buffers reuse the same memory.
 - For NV12/I420, software color conversion (BT.601 full-range) is used.

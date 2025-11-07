@@ -40,6 +40,14 @@ PKG_CHECK_MODULES([PNG], [libpng], [
   AC_MSG_ERROR([You need libpng development package (e.g. libpng-dev).])
 ])
 
+# JPEG (libjpeg)
+PKG_CHECK_MODULES([JPEG], [libjpeg], [
+  AC_SUBST([JPEG_CFLAGS])
+  AC_SUBST([JPEG_LIBS])
+], [
+  AC_MSG_ERROR([You need libjpeg development package (e.g. libjpeg-dev).])
+])
+
 AC_MSG_CHECKING([plugindir])
 if test "x${prefix}" = "x$HOME"; then
   plugindir="$HOME/.gstreamer-1.0/plugins"
