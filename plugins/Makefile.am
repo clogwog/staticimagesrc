@@ -3,8 +3,8 @@ plugindir = @plugindir@
 plugin_LTLIBRARIES = libgststaticimagesrc.la
 
 libgststaticimagesrc_la_SOURCES = \
-    gststaticpngsrc.cpp \
-    gststaticpngsrc.h \
+    gststaticimagesrc.cpp \
+    gststaticimagesrc.h \
     plugin.cpp
 
 # Apply pkg-config includes to all compilations (C/C++)

@@ -1,7 +1,7 @@
 AC_PREREQ([2.53])
 AC_INIT([staticimagesrc],[1.0.0])
 
-AC_CONFIG_SRCDIR([plugins/gststaticpngsrc.cpp])
+AC_CONFIG_SRCDIR([plugins/gststaticimagesrc.cpp])
 AC_CONFIG_HEADERS([config.h])
 
 AM_INIT_AUTOMAKE([foreign subdir-objects])

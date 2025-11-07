@@ -6,7 +6,7 @@
 #include "config.h"
 #endif
 
-#include "gststaticpngsrc.h"
+#include "gststaticimagesrc.h"
 
 #include <gst/base/gstbasesrc.h>
 #include <gst/base/gstpushsrc.h>

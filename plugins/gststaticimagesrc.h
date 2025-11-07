@@ -1,9 +1,9 @@
 /*
- * Static PNG Source - outputs a constant RGBA frame at a fixed framerate
+ * Static Image Source - outputs a constant RGBA frame at a fixed framerate
  */
 
-#ifndef __GST_STATIC_PNG_SRC_H__
-#define __GST_STATIC_PNG_SRC_H__
+#ifndef __GST_STATIC_IMAGE_SRC_H__
+#define __GST_STATIC_IMAGE_SRC_H__
 
 #include <gst/gst.h>
 #include <gst/base/gstpushsrc.h>
@@ -16,7 +16,6 @@ G_DECLARE_FINAL_TYPE (GstStaticPngSrc, gst_static_png_src, GST, STATICPNG_SRC, G
 
 G_END_DECLS
 
-#endif /* __GST_STATIC_PNG_SRC_H__ */
-
+#endif /* __GST_STATIC_IMAGE_SRC_H__ */
 
 
