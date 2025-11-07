@@ -395,6 +395,23 @@ static gboolean gst_static_png_src_start(GstBaseSrc* src)
     self->rgba_size = (gsize)self->rgba_stride * (gsize)self->actual_height;
     self->rgba_data = final_pixels;
 
+    /* Proactively set default caps (RGBA) to ensure early negotiation on older stacks */
+    {
+        GstCaps* default_caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "RGBA", "width", G_TYPE_INT,
+                                                    self->actual_width, "height", G_TYPE_INT, self->actual_height,
+                                                    "framerate", GST_TYPE_FRACTION, self->fps_n, self->fps_d, NULL);
+        if (default_caps != NULL)
+        {
+            if (!gst_base_src_set_caps(GST_BASE_SRC(self), default_caps))
+            {
+                gst_caps_unref(default_caps);
+                GST_ELEMENT_ERROR(self, CORE, NEGOTIATION, ("Failed to set initial caps"), (NULL));
+                return FALSE;
+            }
+            gst_caps_unref(default_caps);
+        }
+    }
+
     /* Defer building output format until first buffer (after negotiation) */
     self->frame_data = NULL;
     self->frame_size = 0;
