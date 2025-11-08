@@ -65,7 +65,7 @@ export GST_PLUGIN_PATH="/usr/local/lib/gstreamer-1.0:${GST_PLUGIN_PATH}"
 - Basic preview (matches pipeline_manager example):
 ```bash
 gst-launch-1.0 \
-  staticimagesrc location=/etc/MTData/png/test-pattern.png fps=25/1 width=1280 height=720 ! \
+  staticimagesrc location=/path/to/image/test-pattern.png fps=25/1 width=1280 height=720 ! \
   video/x-raw,format=RGBA ! videoconvert ! autovideosink
 ```
 
