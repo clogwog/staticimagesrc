@@ -29,7 +29,8 @@ enum
     PROP_LOCATION,
     PROP_FPS,
     PROP_WIDTH,
-    PROP_HEIGHT
+    PROP_HEIGHT,
+    PROP_NUM_BUFFERS
 };
 
 /* Src pad template: allows negotiation while enabling fixed RGBA output */
@@ -67,6 +68,7 @@ struct _GstStaticPngSrc
 
     GstMemory* shared_mem;
     guint64 frame_count;
+    guint num_buffers;
     GstClockTime frame_duration;
 };
 
@@ -144,6 +146,11 @@ static void gst_static_png_src_class_init(GstStaticPngSrcClass* klass)
                                                      "Optional output height (scales image once if set)", 0, 8192, 0,
                                                      (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobject_class, PROP_NUM_BUFFERS,
+        g_param_spec_uint("num-buffers", "num-buffers", "Number of buffers to output before sending EOS (0 = unlimited)", 0, G_MAXUINT, 0,
+                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
     base_src_class->start = gst_static_png_src_start;
     base_src_class->stop = gst_static_png_src_stop;
     pushsrc_class->create = gst_static_png_src_create;
@@ -168,6 +175,7 @@ static void gst_static_png_src_init(GstStaticPngSrc* self)
     self->num_planes = 1;
     self->shared_mem = NULL;
     self->frame_count = 0;
+    self->num_buffers = 0;
     self->frame_duration = gst_util_uint64_scale_int(GST_SECOND, self->fps_d, self->fps_n);
 
     gst_base_src_set_format(GST_BASE_SRC(self), GST_FORMAT_TIME);
@@ -228,6 +236,11 @@ static void gst_static_png_src_set_property(GObject* object, guint prop_id, cons
             self->target_height = g_value_get_int(value);
             break;
         }
+        case PROP_NUM_BUFFERS:
+        {
+            self->num_buffers = g_value_get_uint(value);
+            break;
+        }
         default:
         {
             G_OBJECT_CLASS(gst_static_png_src_parent_class)->set_property(object, prop_id, value, pspec);
@@ -260,6 +273,11 @@ static void gst_static_png_src_get_property(GObject* object, guint prop_id, GVal
         case PROP_HEIGHT:
         {
             g_value_set_int(value, self->target_height);
+            break;
+        }
+        case PROP_NUM_BUFFERS:
+        {
+            g_value_set_uint(value, self->num_buffers);
             break;
         }
         default:
@@ -615,6 +633,14 @@ static GstFlowReturn gst_static_png_src_create(GstPushSrc* src, GstBuffer** buf)
     GST_BUFFER_DURATION(buffer) = self->frame_duration;
 
     self->frame_count++;
+
+    /* Check if we've reached the num-buffers limit */
+    if (self->num_buffers > 0 && self->frame_count >= self->num_buffers)
+    {
+        *buf = buffer;
+        return GST_FLOW_EOS;
+    }
+
     *buf = buffer;
 
     return GST_FLOW_OK;
