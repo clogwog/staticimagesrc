@@ -127,8 +127,10 @@ This will output exactly 150 frames (5 seconds at 30 fps) before sending EOS.
 
 ## Changes
 
-### Added `num-buffers` Property
+### Added `num-buffers` Property (2025-10-14)
 - Added support for limiting the number of output buffers via the `num-buffers` property.
 - When `num-buffers` is set to a value > 0, the element outputs exactly that many buffers before sending EOS.
 - Default value is `0` (unlimited output), maintaining backward compatibility.
 - This property allows precise control over output duration, useful for testing and fixed-duration test pattern generation.
+
+### Initial push (2025-10-07)
